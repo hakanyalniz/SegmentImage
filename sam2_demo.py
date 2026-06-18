@@ -1,6 +1,28 @@
 import cv2
 import numpy as np
+from cv2.typing import MatLike
 from ultralytics import SAM
+
+
+def resize_image(img: MatLike):  # type: ignore
+    # Calculate a scale factor to fit the screen
+    # Change max_height if your screen is smaller or larger
+    max_height = 700
+    original_height, original_width = img.shape[:2]
+
+    if original_height > max_height:
+        scale_factor = max_height / original_height
+        new_width = int(original_width * scale_factor)
+        new_height = int(original_height * scale_factor)
+
+        # Create a smaller display version for the UI
+        display_img = cv2.resize(img, (new_width, new_height))
+        print(f"Image scaled down by {scale_factor:.2f} to fit screen.")
+    else:
+        scale_factor = 1.0
+        display_img = img.copy()
+
+    return display_img, scale_factor
 
 
 def main():
@@ -16,16 +38,24 @@ def main():
         )
         return
 
+    # Returns a smaller resized image for ease of use in selecting a box
+    # Also get the scale factor, which we will use to rescale the mask coordinates to original size
+    display_img, scale_factor = resize_image(img)
+
     # Create a window, show the img. Set up the mouse click event, wait infinitely, then exit
     print(
         "Click and drag a box around the entire character, then press ENTER or SPACE."
     )
-    roi = cv2.selectROI("Select Character", img, fromCenter=False, showCrosshair=True)
+    roi = cv2.selectROI(
+        "Select Character. Press any key to exit.",
+        display_img,
+        fromCenter=False,
+        showCrosshair=True,
+    )
     cv2.destroyAllWindows()
 
     # roi gives coordinates on the display image: (x, y, w, h)
-    w, h = roi
-
+    x, y, w, h = roi  # type: ignore
     # Check if the selection is empty (width or height is 0)
     if w == 0 or h == 0:
         print("Selection cancelled or invalid box drawn. Exiting.")
@@ -33,7 +63,13 @@ def main():
 
     # roi returns: (x_start, y_start, width, height)
     # SAM 2 expects: [xmin, ymin, xmax, ymax]
-    bbox = [int(roi[0]), int(roi[1]), int(roi[0] + roi[2]), int(roi[1] + roi[3])]
+    # We will give SAM 2 the original image and the sized up coordinates by scaling it up
+    bbox = [
+        int((roi[0]) / scale_factor),
+        int((roi[1]) / scale_factor),
+        int((roi[0] + roi[2]) / scale_factor),
+        int((roi[1] + roi[3]) / scale_factor),
+    ]
 
     print("Loading SAM 2 model and generating mask...")
 
