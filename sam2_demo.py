@@ -94,9 +94,18 @@ def main():
         # Resize mask back to match original image dimensions if necessary
         mask_img = cv2.resize(mask_array, (img.shape[1], img.shape[0]))
 
+        # Define the size of the cleanup brush (the kernel)
+        kernel = np.ones((5, 5), np.uint8)
+
+        # Fill in the internal black patches (Closing)
+        cleaned_mask = cv2.morphologyEx(mask_img, cv2.MORPH_CLOSE, kernel)
+
+        # Remove any tiny floating specks in the background (Opening)
+        cleaned_mask = cv2.morphologyEx(cleaned_mask, cv2.MORPH_OPEN, kernel)
+
         # Save the crisp binary mask
         output_filename = "./test/output_shadow_mask.png"
-        cv2.imwrite(output_filename, mask_img)
+        cv2.imwrite(output_filename, cleaned_mask)
         print(f"Success! Mask saved as '{output_filename}'")
 
         # Show a quick preview of the generated mask
