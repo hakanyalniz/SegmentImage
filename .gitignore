@@ -1,3 +1,4 @@
 .venv
 test
 sam2_b.pt
+.gitignore
