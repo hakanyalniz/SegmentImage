@@ -103,13 +103,23 @@ def main():
         # Remove any tiny floating specks in the background (Opening)
         cleaned_mask = cv2.morphologyEx(cleaned_mask, cv2.MORPH_OPEN, kernel)
 
+        # Force the outermost 2 pixels on all four edges to be white (255)
+        # This cleanly deletes any edge or corner artifacts
+        cv2.rectangle(
+            cleaned_mask,
+            (0, 0),
+            (cleaned_mask.shape[1] - 1, cleaned_mask.shape[0] - 1),
+            255,
+            thickness=10,
+        )
+
         # Save the crisp binary mask
         output_filename = "./test/output_shadow_mask.png"
         cv2.imwrite(output_filename, cleaned_mask)
         print(f"Success! Mask saved as '{output_filename}'")
 
         # Show a quick preview of the generated mask
-        cv2.imshow("Generated Mask Preview (Press 0 to close)", mask_img)
+        cv2.imshow("Generated Mask Preview (Press 0 to close)", cleaned_mask)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
     else:
