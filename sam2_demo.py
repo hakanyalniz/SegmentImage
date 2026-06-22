@@ -4,7 +4,7 @@ from cv2.typing import MatLike
 from ultralytics import SAM
 
 
-def resize_image(img: MatLike):
+def resize_image(img: MatLike) -> tuple[MatLike, float]:
     """
     Resizes the given image so when coordinate selection window pops up it is of suitable size.
     Otherwise it will exceed the display screen.
@@ -86,6 +86,33 @@ def image_select_box(display_img: MatLike, scale_factor: float) -> list[int]:
     return bbox
 
 
+def image_cleanup(mask_img: MatLike) -> MatLike:
+    """
+    Clean up the image, filling the hanging black and white patches. Also, clean up the corners of the image.
+    """
+
+    # Define the size of the cleanup brush (the kernel)
+    kernel = np.ones((5, 5), np.uint8)
+
+    # Fill in the internal black patches (Closing)
+    cleaned_mask = cv2.morphologyEx(mask_img, cv2.MORPH_CLOSE, kernel)
+
+    # Remove any tiny floating specks in the background (Opening)
+    cleaned_mask = cv2.morphologyEx(cleaned_mask, cv2.MORPH_OPEN, kernel)
+
+    # Force the outermost 2 pixels on all four edges to be white (255)
+    # This cleanly deletes any edge or corner artifacts
+    cv2.rectangle(
+        cleaned_mask,
+        (0, 0),
+        (cleaned_mask.shape[1] - 1, cleaned_mask.shape[0] - 1),
+        255,
+        thickness=10,
+    )
+
+    return cleaned_mask
+
+
 def main():
     # Input image path and return both that and image itself
     image_path, img = load_target_image()
@@ -120,24 +147,8 @@ def main():
         # Resize mask back to match original image dimensions if necessary
         mask_img = cv2.resize(mask_array, (img.shape[1], img.shape[0]))
 
-        # Define the size of the cleanup brush (the kernel)
-        kernel = np.ones((5, 5), np.uint8)
-
-        # Fill in the internal black patches (Closing)
-        cleaned_mask = cv2.morphologyEx(mask_img, cv2.MORPH_CLOSE, kernel)
-
-        # Remove any tiny floating specks in the background (Opening)
-        cleaned_mask = cv2.morphologyEx(cleaned_mask, cv2.MORPH_OPEN, kernel)
-
-        # Force the outermost 2 pixels on all four edges to be white (255)
-        # This cleanly deletes any edge or corner artifacts
-        cv2.rectangle(
-            cleaned_mask,
-            (0, 0),
-            (cleaned_mask.shape[1] - 1, cleaned_mask.shape[0] - 1),
-            255,
-            thickness=10,
-        )
+        # Clean the mask's corners and any patches of hanging black or white parts
+        cleaned_mask = image_cleanup(mask_img)
 
         # Save the crisp binary mask
         output_filename = "./test/output_shadow_mask.png"
