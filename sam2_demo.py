@@ -11,7 +11,7 @@ def resize_image(img: MatLike):  # type: ignore
     original_height, original_width = img.shape[:2]
 
     if original_height > max_height:
-        scale_factor = max_height / original_height
+        scale_factor: float = max_height / original_height
         new_width = int(original_width * scale_factor)
         new_height = int(original_height * scale_factor)
 
@@ -25,9 +25,11 @@ def resize_image(img: MatLike):  # type: ignore
     return display_img, scale_factor
 
 
-def main():
-    # Provide the path to your image
-    image_path = "./test/test_image2.jpg"
+def load_target_image() -> tuple[str, MatLike]:
+    """
+    Asks user for image path and returns a cv2 image and the path itself.
+    """
+    image_path = input("Enter image path.")
 
     # Load and display the image for coordinate selection
     # Also check if the image is available
@@ -36,7 +38,12 @@ def main():
         print(
             f"Error: Could not load image from path '{image_path}'. Check the filename."
         )
-        return
+        exit()
+    return image_path, img
+
+
+def main():
+    image_path, img = load_target_image()
 
     # Returns a smaller resized image for ease of use in selecting a box
     # Also get the scale factor, which we will use to rescale the mask coordinates to original size
@@ -128,3 +135,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# Make use of clicking points to select negative background elements to avoid
+# Refactor the code to modularize it
