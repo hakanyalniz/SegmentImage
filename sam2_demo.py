@@ -4,7 +4,12 @@ from cv2.typing import MatLike
 from ultralytics import SAM
 
 
-def resize_image(img: MatLike):  # type: ignore
+def resize_image(img: MatLike):
+    """
+    Resizes the given image so when coordinate selection window pops up it is of suitable size.
+    Otherwise it will exceed the display screen.
+    """
+
     # Calculate a scale factor to fit the screen
     # Change max_height if your screen is smaller or larger
     max_height = 700
@@ -29,7 +34,8 @@ def load_target_image() -> tuple[str, MatLike]:
     """
     Asks user for image path and returns a cv2 image and the path itself.
     """
-    image_path = input("Enter image path.")
+
+    image_path = input("Enter image path: ")
 
     # Load and display the image for coordinate selection
     # Also check if the image is available
@@ -42,7 +48,7 @@ def load_target_image() -> tuple[str, MatLike]:
     return image_path, img
 
 
-def image_select_box(display_img: MatLike, scale_factor: float):
+def image_select_box(display_img: MatLike, scale_factor: float) -> list[int]:
     """
     Opens the selected image, allows for user box select and returns 4 coordinates to use with SAM.
     SAM will use these coordinates to know where to focus and segment.
@@ -65,7 +71,7 @@ def image_select_box(display_img: MatLike, scale_factor: float):
     # Check if the selection is empty (width or height is 0)
     if w == 0 or h == 0:
         print("Selection cancelled or invalid box drawn. Exiting.")
-        return
+        exit()
 
     # roi returns: (x_start, y_start, width, height)
     # SAM 2 expects: [xmin, ymin, xmax, ymax]
