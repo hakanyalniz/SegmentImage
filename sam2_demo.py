@@ -1,8 +1,13 @@
+from typing import Any
+
 import cv2
 import numpy as np
 from cv2.typing import MatLike
 from ultralytics import SAM
 from ultralytics.engine.results import Results
+
+# Global variable to store our selected point in case we need it
+selected_point = None
 
 
 def resize_image(img: MatLike) -> tuple[MatLike, float]:
@@ -87,6 +92,27 @@ def image_select_box(display_img: MatLike, scale_factor: float) -> list[int]:
     return bbox
 
 
+def image_select_point(event: int, x: int, y: int, flags: int, param: Any):
+    """Callback function that handles mouse click events."""
+    global selected_point
+
+    # Check if the left mouse button was clicked
+    if event == cv2.EVENT_LBUTTONDOWN:
+        selected_point = [x, y]
+        print(f"Point selected: X={x}, Y={y}")
+
+        # Create a copy of the original image to draw on
+        # This prevents drawing multiple circles if you click repeatedly
+        img_copy = param.copy()
+
+        # Draw a small solid circle at the clicked location
+        # cv2.circle(image, center_coordinates, radius, color_bgr, thickness)
+        cv2.circle(img_copy, (x, y), 5, (0, 0, 255), -1)
+
+        # Update the display window with the marked image
+        cv2.imshow("Select Point", img_copy)
+
+
 def image_cleanup(mask_img: MatLike) -> MatLike:
     """
     Clean up the image, filling the hanging black and white patches. Also, clean up the corners of the image.
@@ -114,7 +140,9 @@ def image_cleanup(mask_img: MatLike) -> MatLike:
     return cleaned_mask
 
 
-def process_SAM(image_path: str, bbox: list[int]) -> Results:
+def process_SAM(
+    image_path: str, bbox: list[int], selected_point: list[int] | None = None
+) -> Results:
     """
     Use the original image, the scaled up bbox and set up appropriate labels to process the segmentation.
     Returns the segmentation result, which is the mask. It requires more process to become usable.
@@ -128,7 +156,11 @@ def process_SAM(image_path: str, bbox: list[int]) -> Results:
 
     # Run inference using your clicked coordinate point
     # labels=[1] tells SAM 2 that the point represents the foreground object.
-    results = model(image_path, bboxes=[bbox], labels=[1])
+    if selected_point is not None:
+        print("Selected point exclusion,", selected_point)
+        results = model(image_path, bboxes=[bbox], points=[selected_point], labels=[0])
+    else:
+        results = model(image_path, bboxes=[bbox])
 
     # Extract and process the generated binary mask
     result = results[0]
@@ -137,6 +169,8 @@ def process_SAM(image_path: str, bbox: list[int]) -> Results:
 
 
 def main():
+    global selected_point
+
     # Input image path and return both that and image itself
     image_path, img = load_target_image()
 
@@ -147,8 +181,42 @@ def main():
     # Returns coordinates to use with SAM
     bbox = image_select_box(display_img, scale_factor)
 
+    user_exclude_input = input(
+        "Do you wish to explicitly exclude objects from segmentation (yes/no): "
+    )
+    if user_exclude_input == "yes":
+        # Create a named window
+        cv2.namedWindow("Select Point. Click any key to exit.")
+
+        # Bind the click_event function to the window and pass the image as a parameter
+        cv2.setMouseCallback(
+            "Select Point. Click any key to exit.",
+            image_select_point,
+            param=display_img,
+        )
+
+        # Display the initial image
+        cv2.imshow("Select Point. Click any key to exit.", display_img)
+
+        print(
+            "Click anywhere on the image to select a point. Press any key to confirm and exit."
+        )
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+        # Now you can use the selected point for SAM
+        if selected_point is not None:
+            selected_point = [
+                int(selected_point[0] / scale_factor),
+                int(selected_point[1] / scale_factor),
+            ]
+
+            print(f"Final selected point for processing: {selected_point}")
+        else:
+            print("No point was selected.")
+
     # Segments the original image with the selected coordinates
-    result = process_SAM(image_path, bbox)
+    result = process_SAM(image_path, bbox, selected_point)
 
     if result.masks is not None:
         # Convert the tensor format mask to a binary NumPy array (0 or 255)
