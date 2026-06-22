@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from cv2.typing import MatLike
 from ultralytics import SAM
+from ultralytics.engine.results import Results
 
 
 def resize_image(img: MatLike) -> tuple[MatLike, float]:
@@ -113,16 +114,11 @@ def image_cleanup(mask_img: MatLike) -> MatLike:
     return cleaned_mask
 
 
-def main():
-    # Input image path and return both that and image itself
-    image_path, img = load_target_image()
-
-    # Returns a smaller resized image for ease of use in selecting a box
-    # Also get the scale factor, which we will use to rescale the mask coordinates to original size
-    display_img, scale_factor = resize_image(img)
-
-    # Returns coordinates to use with SAM
-    bbox = image_select_box(display_img, scale_factor)
+def process_SAM(image_path: str, bbox: list[int]) -> Results:
+    """
+    Use the original image, the scaled up bbox and set up appropriate labels to process the segmentation.
+    Returns the segmentation result, which is the mask. It requires more process to become usable.
+    """
 
     print("Loading SAM 2 model and generating mask...")
 
@@ -136,6 +132,24 @@ def main():
 
     # Extract and process the generated binary mask
     result = results[0]
+
+    return result
+
+
+def main():
+    # Input image path and return both that and image itself
+    image_path, img = load_target_image()
+
+    # Returns a smaller resized image for ease of use in selecting a box
+    # Also get the scale factor, which we will use to rescale the mask coordinates to original size
+    display_img, scale_factor = resize_image(img)
+
+    # Returns coordinates to use with SAM
+    bbox = image_select_box(display_img, scale_factor)
+
+    # Segments the original image with the selected coordinates
+    result = process_SAM(image_path, bbox)
+
     if result.masks is not None:
         # Convert the tensor format mask to a binary NumPy array (0 or 255)
         # result.masks.data[0] is the result tensor data. cpu() moves the data to RAM. numpy() this formats the tensor to array
@@ -167,4 +181,3 @@ if __name__ == "__main__":
     main()
 
 # Make use of clicking points to select negative background elements to avoid
-# Refactor the code to modularize it
