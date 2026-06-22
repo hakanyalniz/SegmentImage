@@ -42,12 +42,11 @@ def load_target_image() -> tuple[str, MatLike]:
     return image_path, img
 
 
-def main():
-    image_path, img = load_target_image()
-
-    # Returns a smaller resized image for ease of use in selecting a box
-    # Also get the scale factor, which we will use to rescale the mask coordinates to original size
-    display_img, scale_factor = resize_image(img)
+def image_select_box(display_img: MatLike, scale_factor: float):
+    """
+    Opens the selected image, allows for user box select and returns 4 coordinates to use with SAM.
+    SAM will use these coordinates to know where to focus and segment.
+    """
 
     # Create a window, show the img. Set up the mouse click event, wait infinitely, then exit
     print(
@@ -77,6 +76,20 @@ def main():
         int((roi[0] + roi[2]) / scale_factor),
         int((roi[1] + roi[3]) / scale_factor),
     ]
+
+    return bbox
+
+
+def main():
+    # Input image path and return both that and image itself
+    image_path, img = load_target_image()
+
+    # Returns a smaller resized image for ease of use in selecting a box
+    # Also get the scale factor, which we will use to rescale the mask coordinates to original size
+    display_img, scale_factor = resize_image(img)
+
+    # Returns coordinates to use with SAM
+    bbox = image_select_box(display_img, scale_factor)
 
     print("Loading SAM 2 model and generating mask...")
 
